@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# PyInstaller (artefactos generados; comando en README/AGENTS)
+build/
+dist/
+*.spec
+
+# Config local del usuario (umbrales guardados por la app)
+pump_driver_config.json
+
+# IDEs / editores
+.idea/
+.vscode/
+*.swp
+
+# SO
+.DS_Store
+Thumbs.db
+desktop.ini
