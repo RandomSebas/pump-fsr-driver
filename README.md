@@ -73,6 +73,14 @@ python test_serial.py COM3 115200     # use your actual COM port
 - `test_serial.py` opens the port raw (like the IDE) to isolate hardware vs.
   app problems.
 
+## Credits & Attribution
+
+This project is a work based on the original work of **KIOPads**. The original
+Arduino firmware (`FSR_PUMP_warrior.ino`) is entirely the work of KIOPads and
+is included here with full attribution and credit. This repository contributes
+the desktop driver app, the serial protocol, and the adaptations built around
+that original code.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
