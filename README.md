@@ -37,8 +37,40 @@ python pump_driver.py
 
 1. Upload `FSR_PUMP_warrior/FSR_PUMP_warrior.ino` with the Arduino IDE
    (board **Leonardo**).
-2. In the app select the COM port (listed as "COMx - Arduino Leonardo"),
-   press **Connect**, and adjust thresholds with the sliders or number fields.
+2. In the app select the serial port (listed as `COMx - Arduino Leonardo` on
+   Windows, or `/dev/ttyACM0 - Arduino Leonardo` on Linux), press **Connect**,
+   and adjust thresholds with the sliders or number fields.
+
+## Linux setup
+
+The firmware, protocol, and app are identical — only access to the serial port
+differs.
+
+1. **Port name**: on Linux the Leonardo shows up as `/dev/ttyACM0` (or
+   `/dev/ttyACM1`, ...) instead of a COM port. The app lists it automatically;
+   run `python test_serial.py` or `ls /dev/ttyACM*` to confirm.
+2. **Permissions**: your user needs read/write on the port. Either add yourself
+   to the serial group of your distro —
+   `sudo usermod -aG dialout $USER` (Debian/Ubuntu), `uucp` (Arch), `lock`
+   (Fedora) — then log out and back in, **or** install the provided udev rule
+   (this uses systemd `uaccess`, so the user logged in at the console gets
+   access automatically — no groups, no logout):
+
+   ```bash
+   sudo cp udev/99-pump-fsr.rules /etc/udev/rules.d/
+   sudo udevadm control --reload-rules
+   sudo udevadm trigger
+   # then unplug/replug the USB
+   ```
+
+   The rule also sets `ID_MM_DEVICE_IGNORE` so **ModemManager** won't grab the
+   board.
+3. **Port vanishing / appearing and disappearing** (Ubuntu 22.04+): the
+   `brltty` braille daemon claims `/dev/ttyACM0`. Remove it with
+   `sudo apt remove brltty`.
+4. Select the port in the app and press **Connect**. Same four-step: DTR is
+   asserted, it waits for the board to reset, then handshakes with
+   `PING`/`GETALL`.
 
 ## Serial protocol (115200 baud)
 
@@ -46,7 +78,7 @@ python pump_driver.py
   `READY:...\n` (boot banner), `PONG`, `ERR:...`.
 - PC → Arduino: `SET,i,v\n` (v 0-1023), `GET,i\n`, `GETALL\n`, `PING\n`.
 
-## Build to .exe
+## Build to .exe (Windows)
 
 ```bash
 build_exe.bat
@@ -58,18 +90,29 @@ or manually:
 python -m PyInstaller --noconfirm --onefile --windowed --name PumpFSRDriver --collect-all customtkinter pump_driver.py
 ```
 
+## Build to binary (Linux)
+
+```bash
+./build_linux.sh
+```
+
+(produces `dist/PumpFSRDriver`; the threshold config is saved next to it).
+
 ## Troubleshooting
 
 If the board is listed but the app says "no response":
 
 ```bash
-python test_serial.py COM3 115200     # use your actual COM port
+python test_serial.py COM3 115200     # Windows: use your actual COM port
+python test_serial.py /dev/ttyACM0 115200   # Linux
 ```
 
 - The Leonardo **must be opened with DTR asserted** (like the IDE Serial
   Monitor); with DTR low this board does not transmit.
 - If no `FSR:` lines arrive: close the IDE Serial Monitor, check the USB cable
   (data, not charge-only), or re-upload the firmware.
+- On Linux, if the port cannot be opened, check the `dialout`/`uucp` group and
+  the udev rule above; if the port keeps disappearing, remove `brltty`.
 - `test_serial.py` opens the port raw (like the IDE) to isolate hardware vs.
   app problems.
 

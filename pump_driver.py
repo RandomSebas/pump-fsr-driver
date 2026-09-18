@@ -35,10 +35,12 @@ INDICE DE LOS SENSORES (igual que el firmware):
   4 = ABAJO-DER (DR)(tecla x)
 
 Dependencias:  pip install -r requirements.txt
-Compilar a .exe:  ver build_exe.bat
+Compilar a .exe:  ver build_exe.bat (Windows)
+Compilar a binario Linux:  ver build_linux.sh
 """
 
 import json
+import os
 import queue
 import sys
 import threading
@@ -78,10 +80,32 @@ COL_BORDER_IDLE = "#3a3a3a"
 
 
 def app_dir() -> Path:
-    """Directorio del .exe (modo frozen) o del script."""
+    """Directorio del binario/.exe (modo frozen) o del script."""
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent
+
+
+def _is_linux() -> bool:
+    return os.name == "posix" and not sys.platform.startswith("darwin")
+
+
+def _port_permission_hint(exc) -> str:
+    """Consejos extra para errores de puerto, solo en Linux."""
+    if not _is_linux():
+        return ""
+    text = str(exc)
+    if "Permission denied" in text or getattr(exc, "errno", None) == 13:
+        return ("  > Permisos: anade tu usuario al grupo 'dialout' "
+                "(Debian/Ubuntu), 'uucp' (Arch) o 'lock' (Fedora): "
+                "sudo usermod -aG dialout $USER  y reinicia sesion. "
+                "O instala la regla udev:  sudo cp udev/99-pump-fsr.rules "
+                "/etc/udev/rules.d/ && sudo udevadm control --reload-rules && "
+                "sudo udevadm trigger  (desconecta y reconecta el USB).")
+    if "ttyACM" in text:
+        return ("  > Linux: si el puerto aparece y desaparece solo, "
+                "ModemManager/brltty puede estar capturandolo "
+                "(ver 'udev' en el README).")
 
 
 CONFIG_FILE = app_dir() / "pump_driver_config.json"
@@ -389,6 +413,14 @@ class FSRDriverApp(ctk.CTk):
     # -------------------------------------------------------------- Puertos
     def refresh_ports(self):
         ports = list(serial.tools.list_ports.comports())
+        if _is_linux():
+            # En Linux el kernel siempre lista la serie del SoC (/dev/ttyS*,
+            # /dev/ttyAMA*, ...) que nunca es el Arduino: se ocultan para que
+            # el combo muestre solo candidatos reales (ttyACM0/ttyUSB0...).
+            ports = [p for p in ports
+                     if not p.device.startswith(
+                         ("/dev/ttyS", "/dev/ttyLP", "/dev/ttyAMA",
+                          "/dev/ttyTHS", "/dev/ttyprintk"))]
         self._port_map = {}
         labels = []
         for p in ports:
@@ -437,8 +469,9 @@ class FSRDriverApp(ctk.CTk):
             ser.open()
             time.sleep(2.0)  # espera a que reinicie y arranque el stream FSR
             ser.reset_input_buffer()  # descarta la basura del arranque
-        except Exception as exc:  # puerto ocupado / no existe
-            self.status_queue.put(f"Error al conectar: {exc}")
+        except Exception as exc:  # puerto ocupado / no existe / sin permisos
+            hint = _port_permission_hint(exc)
+            self.status_queue.put(f"Error al conectar: {exc}{hint}")
             return
 
         with self.serial_lock:
@@ -468,12 +501,19 @@ class FSRDriverApp(ctk.CTk):
         if self._handshake_tries >= HANDSHAKE_MAX_TRIES:
             self.status_label.configure(text="\u25cf Conectado (sin respuesta)",
                                         text_color="#e63946")
-            self.status_queue.put(
-                f"Sin respuesta del Arduino en {self.port_var.get()}. Revisa: "
+            tips = (
                 "1) firmware NUEVO cargado (FSR_PUMP_warrior, 115200 baud), "
-                "2) Serial Monitor / IDE cerrados, 3) cable USB de datos (no "
-                "de solo carga), 4) que el puerto sea el correcto (pulsa "
-                "Refrescar si cambio).")
+                "2) Serial Monitor / IDE cerrados, "
+                "3) cable USB de datos (no de solo carga), "
+                "4) el puerto sea el correcto (pulsa Refrescar si cambio)"
+            )
+            if _is_linux():
+                tips += (", "
+                         "5) tu usuario tenga permisos sobre /dev/ttyACM* "
+                         "(grupo dialout/uucp o regla udev, ver README)")
+            self.status_queue.put(
+                f"Sin respuesta del Arduino en {self.port_var.get()}. "
+                f"Revisa: {tips}.")
             return
         self._send("PING\n")
         self._send("GETALL\n")
@@ -519,7 +559,8 @@ class FSRDriverApp(ctk.CTk):
             time.sleep(2.0)
             new_ser.reset_input_buffer()
         except Exception as exc:
-            self.status_queue.put(f"No se pudo reconectar a {port}: {exc}")
+            hint = _port_permission_hint(exc)
+            self.status_queue.put(f"No se pudo reconectar a {port}: {exc}{hint}")
             self._drop_connection()
             return
 

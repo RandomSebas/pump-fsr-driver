@@ -10,7 +10,11 @@ adjust each sensor's activation threshold live; the Arduino emulates a keyboard
 - `FSR_PUMP_warrior/FSR_PUMP_warrior.ino` — Arduino firmware (Keyboard.h HID).
 - `pump_driver.py` — CustomTkinter desktop app + serial reader thread.
 - `requirements.txt` — customtkinter, pyserial, pyinstaller.
-- `build_exe.bat` — builds `dist/PumpFSRDriver.exe` (PyInstaller onefile).
+- `build_exe.bat` — builds `dist/PumpFSRDriver.exe` (PyInstaller onefile, Windows).
+- `build_linux.sh` — same build for Linux (`dist/PumpFSRDriver`).
+- `udev/99-pump-fsr.rules` — Linux udev rule: grants the logged-in user access
+  via systemd `uaccess` and sets `ID_MM_DEVICE_IGNORE` so ModemManager/brltty
+  stop grabbing `/dev/ttyACM*`.
 
 ## Serial protocol (115200 baud, both sides)
 
@@ -45,10 +49,20 @@ adjust each sensor's activation threshold live; the Arduino emulates a keyboard
 - FSR values are `analogRead` 0-1023; the app clamps to this range.
 - `SET` from the app is debounced (200 ms) so rapid slider drags don't flood serial.
 - Config JSON (`pump_driver_config.json`) is stored next to the script/exe.
+- Linux: the port is `/dev/ttyACM*`, not a COM port. Opening it needs group
+  `dialout` (Debian/Ubuntu), `uucp` (Arch) or `lock` (Fedora), or the
+  `udev/99-pump-fsr.rules` rule (systemd `uaccess`, distro-agnostic). If the
+  port appears then vanishes, ModemManager/`brltty` grabbed it (the udev rule
+  sets `ID_MM_DEVICE_IGNORE`; last resort `sudo apt remove brltty`).
+  `Keyboard.h` HID works unchanged on Linux (native USB keyboard) — no firmware
+  changes needed.
+- On Linux the app hides `/dev/ttyS*`/`/dev/ttyAMA*` (SoC serial) from the port
+  combo so it only lists real USB serial candidates.
 
 ## Commands
 
 - Run app: `python pump_driver.py`
 - Build exe: `build_exe.bat` or
   `python -m PyInstaller --noconfirm --onefile --windowed --name PumpFSRDriver --collect-all customtkinter pump_driver.py`
+- Build Linux binary: `./build_linux.sh` (same PyInstaller command → `dist/PumpFSRDriver`)
 - Test without hardware: `python -c "import pump_driver; a=pump_driver.FSRDriverApp(); a.update(); a._handle_line('FSR:100,200,300,400,500'); a.update(); print(a.values); a._on_close()"`

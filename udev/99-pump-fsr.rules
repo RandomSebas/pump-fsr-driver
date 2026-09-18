@@ -1,0 +1,27 @@
+# 99-pump-fsr.rules - Arduino Leonardo/Micro/Pro Micro (USB CDC) para el
+# panel de baile Pump It Up (FSR driver de escritorio pyserial).
+#
+# Hace dos cosas:
+#   1) Evita el tipico "Permission denied" al abrir /dev/ttyACM0 usando
+#      uaccess (systemd): el usuario conectado a la consola obtiene acceso
+#      automaticamente, sin grupos ni reinicio. Funciona en Arch/Debian/Fedora.
+#   2) Marca la placa con ID_MM_DEVICE_IGNORE para que ModemManager/brltty
+#      dejen de intentar tomarla (suele "robar" ttyACM0 y el puerto
+#      aparece/desaparece solo).
+#
+# Instalacion:
+#   sudo cp udev/99-pump-fsr.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+#   Desconecta y reconecta el USB.
+#
+# Alternativa sin uaccess: anade tu usuario al grupo de la distro
+#   (dialout Debian/Ubuntu, uucp Arch, lock Fedora) y reinicia sesion.
+#
+# Si el puerto sigue desapareciendo tras la regla, en Ubuntu/derivados el
+# culpable es brltty:  sudo apt remove brltty   (docs en el README).
+
+SUBSYSTEM=="usb",  ATTRS{idVendor}=="2341", ENV{ID_MM_DEVICE_IGNORE}="1"
+SUBSYSTEM=="usb",  ATTRS{idVendor}=="1b4f", ENV{ID_MM_DEVICE_IGNORE}="1"
+SUBSYSTEM=="tty",  ATTRS{idVendor}=="2341", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="tty",  ATTRS{idVendor}=="1b4f", ENV{ID_MM_DEVICE_IGNORE}="1", MODE="0660", TAG+="uaccess"
