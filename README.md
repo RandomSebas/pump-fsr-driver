@@ -57,14 +57,17 @@ differs.
    access automatically — no groups, no logout):
 
    ```bash
-   sudo cp udev/99-pump-fsr.rules /etc/udev/rules.d/
+   sudo cp udev/60-pump-fsr.rules /etc/udev/rules.d/
    sudo udevadm control --reload-rules
-   sudo udevadm trigger
-   # then unplug/replug the USB
+   sudo udevadm trigger --subsystem-match=tty --action=change
+   # then unplug/replug the USB if the port is already connected
    ```
 
-   The rule also sets `ID_MM_DEVICE_IGNORE` so **ModemManager** won't grab the
-   board.
+   Keep the `60-` prefix: the rule must load before systemd's
+   `70-uaccess.rules`/`73-seat-late.rules`, otherwise the device gets the
+   `uaccess` tag but never the ACL (the classic `Permission denied` on
+   `/dev/ttyACM0`). The rule also sets `ID_MM_DEVICE_IGNORE` so
+   **ModemManager** won't grab the board.
 3. **Port vanishing / appearing and disappearing** (Ubuntu 22.04+): the
    `brltty` braille daemon claims `/dev/ttyACM0`. Remove it with
    `sudo apt remove brltty`.

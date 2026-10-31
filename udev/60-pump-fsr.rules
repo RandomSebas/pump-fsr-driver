@@ -1,19 +1,25 @@
-# 99-pump-fsr.rules - Arduino Leonardo/Micro/Pro Micro (USB CDC) para el
+# 60-pump-fsr.rules - Arduino Leonardo/Micro/Pro Micro (USB CDC) para el
 # panel de baile Pump It Up (FSR driver de escritorio pyserial).
 #
-# Hace dos cosas:
+# Hace tres cosas:
 #   1) Evita el tipico "Permission denied" al abrir /dev/ttyACM0 usando
 #      uaccess (systemd): el usuario conectado a la consola obtiene acceso
 #      automaticamente, sin grupos ni reinicio. Funciona en Arch/Debian/Fedora.
 #   2) Marca la placa con ID_MM_DEVICE_IGNORE para que ModemManager/brltty
 #      dejen de intentar tomarla (suele "robar" ttyACM0 y el puerto
 #      aparece/desaparece solo).
+#   3) Al cargarse antes de 71-seat, el TAG uaccess hace que systemd asigne
+#      ID_FOR_SEAT y 73-seat-late aplique la ACL al usuario de la sesion.
+#
+# IMPORTANTE: el nombre debe empezar por 60 (antes de 70-uaccess.rules,
+# 71-seat.rules y 73-seat-late.rules). Con 99-... el TAG de uaccess llega
+# demasiado tarde: TAGS muestra :uaccess: pero la ACL nunca se aplica.
 #
 # Instalacion:
-#   sudo cp udev/99-pump-fsr.rules /etc/udev/rules.d/
+#   sudo cp udev/60-pump-fsr.rules /etc/udev/rules.d/
 #   sudo udevadm control --reload-rules
-#   sudo udevadm trigger
-#   Desconecta y reconecta el USB.
+#   sudo udevadm trigger --subsystem-match=tty --action=change
+#   Desconecta y reconecta el USB (o vuelve a lanzar el trigger).
 #
 # Alternativa sin uaccess: anade tu usuario al grupo de la distro
 #   (dialout Debian/Ubuntu, uucp Arch, lock Fedora) y reinicia sesion.

@@ -12,7 +12,7 @@ adjust each sensor's activation threshold live; the Arduino emulates a keyboard
 - `requirements.txt` — customtkinter, pyserial, pyinstaller.
 - `build_exe.bat` — builds `dist/PumpFSRDriver.exe` (PyInstaller onefile, Windows).
 - `build_linux.sh` — same build for Linux (`dist/PumpFSRDriver`).
-- `udev/99-pump-fsr.rules` — Linux udev rule: grants the logged-in user access
+- `udev/60-pump-fsr.rules` — Linux udev rule: grants the logged-in user access
   via systemd `uaccess` and sets `ID_MM_DEVICE_IGNORE` so ModemManager/brltty
   stop grabbing `/dev/ttyACM*`.
 
@@ -51,9 +51,12 @@ adjust each sensor's activation threshold live; the Arduino emulates a keyboard
 - Config JSON (`pump_driver_config.json`) is stored next to the script/exe.
 - Linux: the port is `/dev/ttyACM*`, not a COM port. Opening it needs group
   `dialout` (Debian/Ubuntu), `uucp` (Arch) or `lock` (Fedora), or the
-  `udev/99-pump-fsr.rules` rule (systemd `uaccess`, distro-agnostic). If the
-  port appears then vanishes, ModemManager/`brltty` grabbed it (the udev rule
-  sets `ID_MM_DEVICE_IGNORE`; last resort `sudo apt remove brltty`).
+  `udev/60-pump-fsr.rules` rule (systemd `uaccess`, distro-agnostic). Keep the
+  `60-` prefix: it must load before `70-uaccess.rules`/`71-seat.rules`/
+  `73-seat-late.rules`, otherwise the device gets `TAGS=:uaccess:` but never
+  the ACL and `Permission denied` persists. If the port appears then vanishes,
+  ModemManager/`brltty` grabbed it (the udev rule sets `ID_MM_DEVICE_IGNORE`;
+  last resort `sudo apt remove brltty`).
   `Keyboard.h` HID works unchanged on Linux (native USB keyboard) — no firmware
   changes needed.
 - On Linux the app hides `/dev/ttyS*`/`/dev/ttyAMA*` (SoC serial) from the port
